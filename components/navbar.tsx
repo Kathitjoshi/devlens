@@ -14,9 +14,10 @@ export function Navbar() {
   const [loading, setLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
+    const supabase = createClient();
+
     const getUser = async () => {
       const {
         data: { user },
@@ -36,95 +37,92 @@ export function Navbar() {
     return () => {
       subscription?.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSignOut = async () => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    try {
-      await supabase.auth.signOut();
-      toast.success('Signed out successfully');
-      router.push('/');
-    } catch (error) {
-      toast.error('Failed to sign out');
-    }
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(null);
+    toast.success('Logged out successfully');
+    router.push('/');
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="border-b border-border bg-background sticky top-0 z-40">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="font-bold text-xl text-accent">
-          DevLens
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+          <span className="text-accent">DevLens</span>
         </Link>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6">
-          <Link href="/trending" className="text-sm hover:text-accent transition-colors">
+          <Link href="/" className="text-foreground hover:text-accent transition-colors">
+            Home
+          </Link>
+          <Link href="/trending" className="text-foreground hover:text-accent transition-colors">
             Trending
           </Link>
-          {user && (
-            <Link href="/dashboard" className="text-sm hover:text-accent transition-colors">
-              Dashboard
-            </Link>
-          )}
-        </div>
-
-        {/* Right Section */}
-        <div className="flex items-center gap-4">
-          {/* Theme Toggle */}
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
-          </button>
-
-          {/* Auth Section */}
-          {!loading && (
+          {user ? (
             <>
-              {user ? (
-                <div className="hidden md:flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    {user.email}
-                  </span>
-                  <button
-                    onClick={handleSignOut}
-                    className="p-2 hover:bg-muted rounded-lg transition-colors"
-                    aria-label="Sign out"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="hidden md:flex gap-2">
-                  <Link
-                    href="/signin"
-                    className="text-sm px-4 py-2 rounded-lg hover:bg-muted transition-colors"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="text-sm px-4 py-2 rounded-lg bg-accent text-accent-foreground hover:opacity-90 transition-opacity"
-                  >
-                    Sign Up
-                  </Link>
-                </div>
-              )}
+              <Link href="/dashboard" className="text-foreground hover:text-accent transition-colors">
+                Dashboard
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-foreground hover:text-accent transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/signin"
+                className="text-foreground hover:text-accent transition-colors"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/signup"
+                className="bg-accent text-white px-4 py-2 rounded-lg hover:bg-accent/90 transition-colors"
+              >
+                Sign Up
+              </Link>
             </>
           )}
 
-          {/* Mobile Menu Toggle */}
+          {/* Theme Toggle */}
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-lg hover:bg-accent/10 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-5 h-5 text-accent" />
+            ) : (
+              <Moon className="w-5 h-5 text-accent" />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Menu Button */}
+        <div className="md:hidden flex items-center gap-4">
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-lg hover:bg-accent/10 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-5 h-5 text-accent" />
+            ) : (
+              <Moon className="w-5 h-5 text-accent" />
+            )}
+          </button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors"
-            aria-label="Toggle menu"
+            className="p-2 rounded-lg hover:bg-accent/10 transition-colors"
           >
             {mobileOpen ? (
               <X className="w-5 h-5" />
@@ -135,57 +133,46 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Navigation */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-border bg-background p-4 space-y-4">
-          <Link
-            href="/trending"
-            className="block text-sm hover:text-accent transition-colors"
-            onClick={() => setMobileOpen(false)}
-          >
-            Trending
-          </Link>
-          {user && (
-            <Link
-              href="/dashboard"
-              className="block text-sm hover:text-accent transition-colors"
-              onClick={() => setMobileOpen(false)}
-            >
-              Dashboard
+        <div className="md:hidden border-t border-border bg-background">
+          <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
+            <Link href="/" className="text-foreground hover:text-accent transition-colors">
+              Home
             </Link>
-          )}
-          {!loading && (
-            <>
-              {user ? (
+            <Link href="/trending" className="text-foreground hover:text-accent transition-colors">
+              Trending
+            </Link>
+            {user ? (
+              <>
+                <Link href="/dashboard" className="text-foreground hover:text-accent transition-colors">
+                  Dashboard
+                </Link>
                 <button
-                  onClick={() => {
-                    handleSignOut();
-                    setMobileOpen(false);
-                  }}
-                  className="block w-full text-left text-sm hover:text-accent transition-colors"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 text-foreground hover:text-accent transition-colors"
                 >
-                  Sign Out
+                  <LogOut className="w-4 h-4" />
+                  Logout
                 </button>
-              ) : (
-                <div className="space-y-2">
-                  <Link
-                    href="/signin"
-                    className="block text-sm px-4 py-2 rounded-lg hover:bg-muted transition-colors"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="block text-sm px-4 py-2 rounded-lg bg-accent text-accent-foreground hover:opacity-90 transition-opacity"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    Sign Up
-                  </Link>
-                </div>
-              )}
-            </>
-          )}
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/signin"
+                  className="text-foreground hover:text-accent transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="bg-accent text-white px-4 py-2 rounded-lg hover:bg-accent/90 transition-colors text-center"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       )}
     </nav>
