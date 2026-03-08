@@ -7,7 +7,7 @@ import { ArticleCard } from '@/components/article-card';
 import { Article } from '@/lib/types';
 import { PRESET_TOPICS } from '@/lib/constants';
 import { Loader, Heart, Plus } from 'lucide-react';
-import { useAuth } from '@/_core/hooks/useAuth';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { createClientSafe } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
