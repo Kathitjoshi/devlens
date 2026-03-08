@@ -281,7 +281,6 @@ devlens/
 
 GitHub Actions automatically runs on every push to `main`:
 - Installs dependencies
-- Runs ESLint
 - Builds the project
 
 All checks must pass before merging to main.
