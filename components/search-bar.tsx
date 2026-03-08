@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 import { PRESET_TOPICS } from '@/lib/constants';
-import { createClient } from '@/lib/supabase/client';
+import { createClientSafe } from '@/lib/supabase/client';
 
 export function SearchBar() {
   const [query, setQuery] = useState('');
@@ -12,77 +12,44 @@ export function SearchBar() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = createClientSafe();
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   // Load recent searches on mount
   useEffect(() => {
     const loadRecentSearches = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      if (!supabase) return;
 
-      if (user) {
-        const { data } = await supabase
-          .from('search_history')
-          .select('query')
-          .eq('user_id', user.id)
-          .order('searched_at', { ascending: false })
-          .limit(5);
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        if (data) {
-          setRecentSearches(data.map((item) => item.query));
+        if (user) {
+          const { data } = await supabase
+            .from('search_history')
+            .select('query')
+            .eq('user_id', user.id)
+            .order('searched_at', { ascending: false })
+            .limit(5);
+
+          if (data) {
+            setRecentSearches(data.map((item: any) => item.query));
+          }
         }
-      } else {
-        // Use localStorage for non-authenticated users
-        const stored = localStorage.getItem('recentSearches');
-        if (stored) {
-          setRecentSearches(JSON.parse(stored).slice(0, 5));
-        }
+      } catch (error) {
+        console.error('Failed to load recent searches:', error);
       }
     };
 
     loadRecentSearches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase]);
 
-  // Handle keyboard shortcut (Cmd+K / Ctrl+K)
+  // Handle input change for suggestions
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        (document.querySelector('input[type="search"]') as HTMLInputElement)?.focus();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Handle click outside to close suggestions
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(e.target as Node)
-      ) {
-        setShowSuggestions(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleInputChange = (value: string) => {
-    setQuery(value);
-
-    if (value.length > 0) {
-      // Filter preset topics
+    if (query.trim().length > 0) {
       const filtered = PRESET_TOPICS.filter((topic) =>
-        topic.toLowerCase().includes(value.toLowerCase())
+        topic.toLowerCase().includes(query.toLowerCase())
       );
       setSuggestions(filtered);
       setShowSuggestions(true);
@@ -90,96 +57,126 @@ export function SearchBar() {
       setSuggestions([]);
       setShowSuggestions(true);
     }
-  };
+  }, [query]);
 
+  // Handle search submission
   const handleSearch = async (searchQuery: string) => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     if (!searchQuery.trim()) return;
 
-    // Save search to history
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Save to search history if user is logged in
+    if (supabase) {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-    if (user) {
-      await supabase.from('search_history').insert({
-        user_id: user.id,
-        query: searchQuery,
-      });
-    } else {
-      // Save to localStorage for non-authenticated users
-      const stored = localStorage.getItem('recentSearches') || '[]';
-      const searches = JSON.parse(stored);
-      searches.unshift(searchQuery);
-      localStorage.setItem('recentSearches', JSON.stringify(searches.slice(0, 10)));
+        if (user) {
+          await supabase.from('search_history').insert({
+            user_id: user.id,
+            query: searchQuery,
+            searched_at: new Date().toISOString(),
+          });
+        }
+      } catch (error) {
+        console.error('Failed to save search history:', error);
+      }
     }
 
-    router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+    setQuery('');
     setShowSuggestions(false);
+    router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSearch(query);
-  };
+  // Handle click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
 
-  const displaySuggestions =
-    query.length === 0 ? recentSearches : suggestions;
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="relative w-full max-w-2xl mx-auto">
-      <form onSubmit={handleSubmit} className="relative">
-        <div className="relative flex items-center">
-          <Search className="absolute left-4 w-5 h-5 text-muted-foreground pointer-events-none" />
-          <input
-            type="search"
-            placeholder="Search React hooks, Rust ownership..."
-            value={query}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onFocus={() => setShowSuggestions(true)}
-            className="w-full pl-12 pr-12 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery('');
-                setSuggestions([]);
-              }}
-              className="absolute right-4 text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
-        </div>
-      </form>
+    <div className="relative w-full max-w-2xl mx-auto" ref={suggestionsRef}>
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleSearch(query);
+            }
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          placeholder="Search articles... (React, TypeScript, Python, etc.)"
+          className="w-full px-4 py-3 pl-12 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+        />
+        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        {query && (
+          <button
+            onClick={() => {
+              setQuery('');
+              setSuggestions([]);
+            }}
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
 
       {/* Suggestions Dropdown */}
-      {showSuggestions && displaySuggestions.length > 0 && (
-        <div
-          ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-10"
-        >
-          {displaySuggestions.map((suggestion) => (
-            <button
-              key={suggestion}
-              onClick={() => {
-                setQuery(suggestion);
-                handleSearch(suggestion);
-              }}
-              className="w-full text-left px-4 py-3 hover:bg-muted transition-colors first:rounded-t-lg last:rounded-b-lg text-sm flex items-center gap-2"
-            >
-              <Search className="w-4 h-4 text-muted-foreground" />
-              {suggestion}
-            </button>
-          ))}
+      {showSuggestions && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+          {/* Recent Searches */}
+          {recentSearches.length > 0 && !query && (
+            <>
+              <div className="px-4 py-2 text-xs font-semibold text-muted-foreground border-b border-border">
+                Recent Searches
+              </div>
+              {recentSearches.map((search) => (
+                <button
+                  key={search}
+                  onClick={() => handleSearch(search)}
+                  className="w-full text-left px-4 py-2 hover:bg-accent/10 text-foreground transition-colors"
+                >
+                  {search}
+                </button>
+              ))}
+              <div className="border-t border-border" />
+            </>
+          )}
+
+          {/* Suggestions */}
+          {suggestions.length > 0 ? (
+            <>
+              <div className="px-4 py-2 text-xs font-semibold text-muted-foreground">
+                Suggestions
+              </div>
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => handleSearch(suggestion)}
+                  className="w-full text-left px-4 py-2 hover:bg-accent/10 text-foreground transition-colors"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </>
+          ) : query ? (
+            <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+              No suggestions found
+            </div>
+          ) : null}
         </div>
       )}
-
-      {/* Keyboard hint */}
-      <div className="absolute right-4 -bottom-8 text-xs text-muted-foreground pointer-events-none">
-        Press <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘K</kbd> to focus
-      </div>
     </div>
   );
 }

@@ -2,10 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  staticPageGenerationTimeout: 0,
-  experimental: {
-    isrMemoryCacheSize: 0,
-  },
   skipTrailingSlashRedirect: true,
   async headers() {
     return [
