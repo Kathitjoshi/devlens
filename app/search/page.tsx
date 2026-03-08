@@ -61,8 +61,8 @@ function SearchPageContent() {
     }
 
     // Date filter
-    if (dateFilter !== 'all' && article.published_at) {
-      const articleDate = new Date(article.published_at);
+    if (dateFilter !== 'all' && article.publishedAt) {
+      const articleDate = new Date(article.publishedAt);
       const now = new Date();
       const daysDiff = (now.getTime() - articleDate.getTime()) / (1000 * 60 * 60 * 24);
 

@@ -50,11 +50,9 @@ export default function TopicPage() {
           url: item.url,
           source: 'devto',
           author: item.user?.name || 'Anonymous',
-          avatar: item.user?.profile_image_90 || '',
-          tags: item.tag_list || [],
+          image: item.user?.profile_image_90 || '',
           score: item.public_reactions_count || 0,
-          published_at: item.published_at,
-          reading_time_minutes: item.reading_time_minutes || 5,
+          publishedAt: item.published_at,
         }));
 
         setArticles(formatted);

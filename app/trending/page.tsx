@@ -47,11 +47,9 @@ export default function TrendingPage() {
           url: item.url,
           source: 'devto',
           author: item.user?.name || 'Anonymous',
-          avatar: item.user?.profile_image_90 || '',
-          tags: item.tag_list || [],
+          image: item.user?.profile_image_90 || '',
           score: item.public_reactions_count || 0,
-          published_at: item.published_at,
-          reading_time_minutes: item.reading_time_minutes || 5,
+          publishedAt: item.published_at,
         }));
 
         // Format Hacker News articles
@@ -62,11 +60,8 @@ export default function TrendingPage() {
           url: item.url || `https://news.ycombinator.com/item?id=${item.objectID}`,
           source: 'hn',
           author: item.author || 'Anonymous',
-          avatar: '',
-          tags: [],
           score: item.points || 0,
-          published_at: new Date(item.created_at).toISOString(),
-          reading_time_minutes: 5,
+          publishedAt: new Date(item.created_at).toISOString(),
         }));
 
         // Combine and sort by score
