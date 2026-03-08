@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { Loader } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

@@ -9,6 +9,8 @@ import { ArticleCard } from '@/components/article-card';
 import { toast } from 'sonner';
 import { Loader } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);

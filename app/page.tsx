@@ -7,6 +7,8 @@ import { SearchBar } from '@/components/search-bar';
 import { PRESET_TOPICS } from '@/lib/constants';
 import { Zap, BookMarked, TrendingUp } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const router = useRouter();
   const [randomTopic, setRandomTopic] = useState('');
