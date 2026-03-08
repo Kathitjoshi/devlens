@@ -2,7 +2,7 @@
 
 A full-stack web application for searching and bookmarking technical articles from DEV.to and Hacker News. Built with Next.js 14, Supabase, and Tailwind CSS.
 
-
+**Live Demo:** [https://devlens-rosy.vercel.app/](https://devlens-rosy.vercel.app/)
 
 ## Features
 
