@@ -15,12 +15,12 @@ export default function Home() {
 
   useEffect(() => {
     // Set random topic for "Surprise Me" button
-    const topic = PRESET_TOPICS[Math.floor(Math.random() * PRESET_TOPICS.length)];
+    const topic = PRESET_TOPICS[Math.floor(Math.random() * PRESET_TOPICS.length)].name;
     setRandomTopic(topic);
   }, []);
 
   const handleSurpriseMe = () => {
-    const topic = PRESET_TOPICS[Math.floor(Math.random() * PRESET_TOPICS.length)];
+    const topic = PRESET_TOPICS[Math.floor(Math.random() * PRESET_TOPICS.length)].name;
     setRandomTopic(topic);
     router.push(`/search?q=${encodeURIComponent(topic)}`);
   };
@@ -103,11 +103,11 @@ export default function Home() {
             <div className="flex flex-wrap justify-center gap-2">
               {PRESET_TOPICS.slice(0, 6).map((topic) => (
                 <button
-                  key={topic}
-                  onClick={() => router.push(`/search?q=${encodeURIComponent(topic)}`)}
+                  key={topic.slug}
+                  onClick={() => router.push(`/search?q=${encodeURIComponent(topic.name)}`)}
                   className="px-4 py-2 rounded-full bg-muted hover:bg-muted/80 transition-colors text-sm"
                 >
-                  {topic}
+                  {topic.name}
                 </button>
               ))}
             </div>

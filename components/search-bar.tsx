@@ -49,8 +49,8 @@ export function SearchBar() {
   useEffect(() => {
     if (query.trim().length > 0) {
       const filtered = PRESET_TOPICS.filter((topic) =>
-        topic.toLowerCase().includes(query.toLowerCase())
-      );
+        topic.name.toLowerCase().includes(query.toLowerCase())
+      ).map((t) => t.name);
       setSuggestions(filtered);
       setShowSuggestions(true);
     } else {
@@ -169,6 +169,7 @@ export function SearchBar() {
                   {suggestion}
                 </button>
               ))}
+
             </>
           ) : query ? (
             <div className="px-4 py-3 text-sm text-muted-foreground text-center">

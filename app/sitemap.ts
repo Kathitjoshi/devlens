@@ -18,10 +18,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
 
   const topicRoutes: MetadataRoute.Sitemap = PRESET_TOPICS.map((topic) => ({
-    url: `${baseUrl}/topic/${topic.toLowerCase().replace(/\s+/g, '-')}`,
+    url: `${baseUrl}/topic/${topic.slug}`,
     changeFrequency: 'daily' as const,
     priority: 0.7,
   }));
 
   return [...staticRoutes, ...topicRoutes];
+
 }
