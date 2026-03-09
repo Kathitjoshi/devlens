@@ -9,9 +9,11 @@ import { PRESET_TOPICS } from '@/lib/constants';
 import { Loader, Heart, Plus } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createClientSafe } from '@/lib/supabase/client';
+import { fetchArticlesByTopic } from '@/lib/api/articles';
 import { toast } from 'sonner';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 86400; // 24 hours
 
 export default function TopicPage() {
   const params = useParams();
@@ -34,28 +36,8 @@ export default function TopicPage() {
         setLoading(true);
         setError('');
 
-        // Fetch from DEV.to
-        const response = await fetch(
-          `https://dev.to/api/articles?tag=${tag}&per_page=20`
-        );
-
-        if (!response.ok) throw new Error('Failed to fetch articles');
-
-        const data = await response.json();
-
-        const formatted = (data || []).map((item: any) => ({
-          id: `devto-${item.id}`,
-          title: item.title,
-          description: item.description || item.excerpt || '',
-          url: item.url,
-          source: 'devto',
-          author: item.user?.name || 'Anonymous',
-          image: item.user?.profile_image_90 || '',
-          score: item.public_reactions_count || 0,
-          publishedAt: item.published_at,
-        }));
-
-        setArticles(formatted);
+        const articles = await fetchArticlesByTopic(tag);
+        setArticles(articles);
       } catch (err) {
         console.error('Failed to fetch topic articles:', err);
         setError('Failed to load articles for this topic');
@@ -170,7 +152,7 @@ export default function TopicPage() {
             <div>
               <h1 className="text-4xl font-bold mb-2">{topicInfo.name}</h1>
               <p className="text-muted-foreground text-lg">
-                {articles.length} articles about {topicInfo.name}
+                {loading ? 'Loading...' : `${articles.length} articles about ${topicInfo.name}`}
               </p>
             </div>
             <button

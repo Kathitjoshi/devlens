@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { ArticleCard } from '@/components/article-card';
-import { fetchDevToArticles, fetchHNArticles } from '@/lib/api/articles';
+import { fetchAllArticles } from '@/lib/api/articles';
 import { Article } from '@/lib/types';
 import { Loader, X } from 'lucide-react';
 
@@ -32,16 +32,8 @@ function SearchPageContent() {
         setLoading(true);
         setError('');
 
-        const [devtoArticles, hnArticles] = await Promise.all([
-          fetchDevToArticles(query),
-          fetchHNArticles(query),
-        ]);
-
-        // Combine and sort by score
-        const combined = [...devtoArticles, ...hnArticles];
-        const sorted = combined.sort((a, b) => (b.score || 0) - (a.score || 0));
-
-        setArticles(sorted);
+        const articles = await fetchAllArticles(query);
+        setArticles(articles);
       } catch (err) {
         setError('Failed to fetch articles');
         console.error(err);
@@ -103,7 +95,7 @@ function SearchPageContent() {
           Results for &quot;<span className="text-accent">{query}</span>&quot;
         </h1>
         <p className="text-muted-foreground">
-          {loading ? 'Searching...' : `Found ${filteredArticles.length} articles`}
+          {loading ? 'Searching...' : `Found ${filteredArticles.length} articles from ${articles.length} total`}
         </p>
       </div>
 

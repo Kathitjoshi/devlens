@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Navbar } from '@/components/navbar';
 import { ArticleCard } from '@/components/article-card';
+import { fetchTrendingArticles } from '@/lib/api/articles';
 import { Article } from '@/lib/types';
 import { Loader, Flame, Calendar, Trophy } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 86400; // 24 hours
 
 export default function TrendingPage() {
   const [activeTab, setActiveTab] = useState<'today' | 'week' | 'month'>('today');
@@ -20,55 +22,8 @@ export default function TrendingPage() {
         setLoading(true);
         setError('');
 
-        let devtoUrl = 'https://dev.to/api/articles?per_page=20';
-        let hnUrl = 'https://hn.algolia.com/api/v1/search?tags=front_page';
-
-        if (activeTab === 'week') {
-          devtoUrl = 'https://dev.to/api/articles?top=7&per_page=20';
-        } else if (activeTab === 'month') {
-          devtoUrl = 'https://dev.to/api/articles?top=30&per_page=20';
-        } else {
-          devtoUrl = 'https://dev.to/api/articles?top=1&per_page=20';
-        }
-
-        const [devtoRes, hnRes] = await Promise.all([
-          fetch(devtoUrl),
-          fetch(hnUrl),
-        ]);
-
-        const devtoData = await devtoRes.json();
-        const hnData = await hnRes.json();
-
-        // Format DEV.to articles
-        const formattedDevto = (devtoData || []).map((item: any) => ({
-          id: `devto-${item.id}`,
-          title: item.title,
-          description: item.description || item.excerpt || '',
-          url: item.url,
-          source: 'devto',
-          author: item.user?.name || 'Anonymous',
-          image: item.user?.profile_image_90 || '',
-          score: item.public_reactions_count || 0,
-          publishedAt: item.published_at,
-        }));
-
-        // Format Hacker News articles
-        const formattedHN = (hnData.hits || []).slice(0, 20).map((item: any) => ({
-          id: `hn-${item.objectID}`,
-          title: item.title || item.story_title || '',
-          description: '',
-          url: item.url || `https://news.ycombinator.com/item?id=${item.objectID}`,
-          source: 'hn',
-          author: item.author || 'Anonymous',
-          score: item.points || 0,
-          publishedAt: new Date(item.created_at).toISOString(),
-        }));
-
-        // Combine and sort by score
-        const combined = [...formattedDevto, ...formattedHN];
-        const sorted = combined.sort((a, b) => (b.score || 0) - (a.score || 0));
-
-        setArticles(sorted);
+        const trendingArticles = await fetchTrendingArticles(activeTab);
+        setArticles(trendingArticles);
       } catch (err) {
         console.error('Failed to fetch trending:', err);
         setError('Failed to load trending articles');
@@ -104,7 +59,7 @@ export default function TrendingPage() {
             }`}
           >
             <Flame className="w-4 h-4" />
-            Today
+            🔥 Today
           </button>
           <button
             onClick={() => setActiveTab('week')}
@@ -115,7 +70,7 @@ export default function TrendingPage() {
             }`}
           >
             <Calendar className="w-4 h-4" />
-            This Week
+            📅 This Week
           </button>
           <button
             onClick={() => setActiveTab('month')}
@@ -126,8 +81,13 @@ export default function TrendingPage() {
             }`}
           >
             <Trophy className="w-4 h-4" />
-            This Month
+            🏆 This Month
           </button>
+        </div>
+
+        {/* Article Count */}
+        <div className="mb-6 text-sm text-muted-foreground">
+          {loading ? 'Loading...' : `Found ${articles.length} trending articles`}
         </div>
 
         {/* Loading State */}
