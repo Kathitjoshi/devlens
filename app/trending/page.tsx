@@ -8,7 +8,6 @@ import { Article } from '@/lib/types';
 import { Loader, Flame, Calendar, Trophy } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 86400; // 24 hours
 
 export default function TrendingPage() {
   const [activeTab, setActiveTab] = useState<'today' | 'week' | 'month'>('today');

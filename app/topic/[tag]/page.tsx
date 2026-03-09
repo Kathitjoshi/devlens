@@ -13,7 +13,6 @@ import { fetchArticlesByTopic } from '@/lib/api/articles';
 import { toast } from 'sonner';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 86400; // 24 hours
 
 export default function TopicPage() {
   const params = useParams();
