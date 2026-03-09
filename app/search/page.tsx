@@ -18,7 +18,7 @@ function SearchPageContent() {
   // Filter states
   const [sourceFilter, setSourceFilter] = useState<'all' | 'devto' | 'hn'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
-  const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
+  const [popularityFilter, setPopularityFilter] = useState<'all' | 'popular' | 'trending' | 'recent'>('all');
 
   useEffect(() => {
     const fetchArticles = async () => {
@@ -63,28 +63,35 @@ function SearchPageContent() {
       if (dateFilter === 'month' && daysDiff > 30) return false;
     }
 
-    // Difficulty filter
-    if (difficultyFilter !== 'all') {
-      const title = (article.title || '').toLowerCase();
-      const description = (article.description || '').toLowerCase();
-      const text = `${title} ${description}`;
-
-      if (difficultyFilter === 'beginner') {
-        const beginnerKeywords = ['introduction', 'beginner', 'getting started', 'basics', 'tutorial', 'guide', 'learn', 'how to', 'what is', 'explained', 'overview', 'fundamentals', 'crash course', 'quickstart'];
-        if (!beginnerKeywords.some(keyword => text.includes(keyword))) return false;
-      } else if (difficultyFilter === 'advanced') {
-        const advancedKeywords = ['advanced', 'deep dive', 'internals', 'under the hood', 'performance', 'optimization', 'architecture', 'scaling', 'production', 'expert', 'low level', 'compiler', 'benchmark'];
-        if (!advancedKeywords.some(keyword => text.includes(keyword))) return false;
-      }
+    // Popularity filter based on likes/upvotes
+    if (popularityFilter !== 'all') {
+      const score = article.score || 0;
+      if (popularityFilter === 'popular' && score < 200) return false;
+      if (popularityFilter === 'trending' && (score < 50 || score >= 200)) return false;
+      if (popularityFilter === 'recent' && score >= 50) return false;
     }
 
     return true;
   });
 
+  // Smart sorting based on filters
+  const sortedArticles = [...filteredArticles].sort((a, b) => {
+    // For "Recent" filter, sort by publish date (newest first)
+    if (popularityFilter === 'recent' && a.publishedAt && b.publishedAt) {
+      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+    }
+    // For "Popular" and "Trending", sort by score (highest first)
+    if (popularityFilter === 'popular' || popularityFilter === 'trending') {
+      return (b.score || 0) - (a.score || 0);
+    }
+    // Default: sort by score
+    return (b.score || 0) - (a.score || 0);
+  });
+
   const activeFilters = [
     sourceFilter !== 'all' && { key: 'source', label: `Source: ${sourceFilter.toUpperCase()}`, value: sourceFilter },
     dateFilter !== 'all' && { key: 'date', label: `Date: ${dateFilter}`, value: dateFilter },
-    difficultyFilter !== 'all' && { key: 'difficulty', label: `Difficulty: ${difficultyFilter}`, value: difficultyFilter },
+    popularityFilter !== 'all' && { key: 'popularity', label: `Popularity: ${popularityFilter.charAt(0).toUpperCase() + popularityFilter.slice(1)}`, value: popularityFilter },
   ].filter(Boolean);
 
   return (
@@ -95,7 +102,7 @@ function SearchPageContent() {
           Results for &quot;<span className="text-accent">{query}</span>&quot;
         </h1>
         <p className="text-muted-foreground">
-          {loading ? 'Searching...' : `Found ${filteredArticles.length} articles from ${articles.length} total`}
+          {loading ? 'Searching...' : `Found ${sortedArticles.length} articles from ${articles.length} total`}
         </p>
       </div>
 
@@ -131,18 +138,18 @@ function SearchPageContent() {
             </select>
           </div>
 
-          {/* Difficulty Filter */}
+          {/* Popularity Filter */}
           <div>
-            <label className="block text-sm font-medium mb-2">Difficulty</label>
+            <label className="block text-sm font-medium mb-2">Popularity</label>
             <select
-              value={difficultyFilter}
-              onChange={(e) => setDifficultyFilter(e.target.value as any)}
+              value={popularityFilter}
+              onChange={(e) => setPopularityFilter(e.target.value as any)}
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="all">All Levels</option>
-              <option value="beginner">🟢 Beginner</option>
-              <option value="intermediate">🟡 Intermediate</option>
-              <option value="advanced">🔴 Advanced</option>
+              <option value="popular">⭐ Popular (200+)</option>
+              <option value="trending">🔥 Trending (50-199)</option>
+              <option value="recent">✨ Recent (0-49)</option>
             </select>
           </div>
         </div>
@@ -156,7 +163,7 @@ function SearchPageContent() {
                 onClick={() => {
                   if (filter.key === 'source') setSourceFilter('all');
                   if (filter.key === 'date') setDateFilter('all');
-                  if (filter.key === 'difficulty') setDifficultyFilter('all');
+                  if (filter.key === 'popularity') setPopularityFilter('all');
                 }}
                 className="flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent hover:bg-accent/20 transition-colors text-sm"
               >
@@ -183,16 +190,16 @@ function SearchPageContent() {
       )}
 
       {/* Articles Grid */}
-      {!loading && filteredArticles.length > 0 && (
+      {!loading && sortedArticles.length > 0 && (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredArticles.map((article) => (
+          {sortedArticles.map((article) => (
             <ArticleCard key={article.id} article={article} />
           ))}
         </div>
       )}
 
       {/* Empty State */}
-      {!loading && filteredArticles.length === 0 && !error && (
+      {!loading && sortedArticles.length === 0 && !error && (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">
             No articles found for &quot;{query}&quot;

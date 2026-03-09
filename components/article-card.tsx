@@ -154,7 +154,12 @@ export function ArticleCard({ article }: ArticleCardProps) {
               </span>
             )}
           </div>
-          {article.score && <span>{article.score} points</span>}
+          {article.score && (
+            <span>
+              {article.source === 'devto' ? '❤️ ' : '⬆️ '}
+              {article.score} {article.source === 'devto' ? 'likes' : 'upvotes'}
+            </span>
+          )}
         </div>
 
         {/* Actions */}
