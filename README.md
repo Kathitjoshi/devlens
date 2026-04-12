@@ -4,6 +4,11 @@ A full-stack web application for searching and bookmarking technical articles fr
 
 **Live Demo:** [https://devlens-rosy.vercel.app/](https://devlens-rosy.vercel.app/)
 
+<img width="2730" height="1456" alt="image" src="https://github.com/user-attachments/assets/f76fba83-78fe-4bc7-a40e-bc0a67f16c82" />
+
+<img width="2710" height="1249" alt="image" src="https://github.com/user-attachments/assets/fcd9c1be-b373-4ab7-87e3-8ad7e4463d39" />
+
+
 ## Features
 
 - 🔍 **Smart Search** - Search 100,000+ technical articles from DEV.to and Hacker News
