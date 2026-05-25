@@ -10,9 +10,10 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
 
   try {
     // Use TAG API which returns articles with that specific tag
-    // This is more reliable than search API
+    // DEV.to tags are case-sensitive and lowercase, so convert query to lowercase
+    const tagQuery = sanitized.toLowerCase();
     const response = await fetch(
-      `https://dev.to/api/articles?tag=${encodeURIComponent(sanitized)}&per_page=100&page=${page}`,
+      `https://dev.to/api/articles?tag=${encodeURIComponent(tagQuery)}&per_page=100&page=${page}`,
       { 
         next: { revalidate: 86400 }, // 24 hours
         headers: { 'Accept': 'application/vnd.forem.api-v1+json' }
@@ -34,7 +35,7 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
       image: article.cover_image,
       publishedAt: article.published_at,
       score: article.positive_reactions_count || 0,
-    })).filter((a: Article) => a.title && a.url); // Filter out any invalid entries
+    })); // Return all articles from API (filtering happens in search page)
   } catch (error) {
     console.error('Error fetching DEV.to articles:', error);
     return [];
