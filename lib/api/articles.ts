@@ -2,16 +2,17 @@ import { Article } from '@/lib/types';
 import { sanitizeQuery } from '@/lib/utils/sanitize';
 
 /**
- * Fetch articles from DEV.to API with pagination (original working API)
+ * Fetch articles from DEV.to API using TAG endpoint (returns relevant articles)
  */
 export async function fetchDevToArticles(query: string, page: number = 1): Promise<Article[]> {
   const sanitized = sanitizeQuery(query);
   if (!sanitized) return [];
 
   try {
-    // DEV.to API supports per_page up to 1000
+    // Use TAG API which returns articles with that specific tag
+    // This is more reliable than search API
     const response = await fetch(
-      `https://dev.to/api/articles/search?query=${encodeURIComponent(sanitized)}&per_page=100&page=${page}`,
+      `https://dev.to/api/articles?tag=${encodeURIComponent(sanitized)}&per_page=100&page=${page}`,
       { 
         next: { revalidate: 86400 }, // 24 hours
         headers: { 'Accept': 'application/vnd.forem.api-v1+json' }
@@ -22,6 +23,7 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
 
     const data = await response.json();
 
+    // Ensure we only return articles that have valid data
     return (data || []).map((article: any) => ({
       id: `devto-${article.id}`,
       title: article.title,
@@ -32,7 +34,7 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
       image: article.cover_image,
       publishedAt: article.published_at,
       score: article.positive_reactions_count || 0,
-    }));
+    })).filter((a: Article) => a.title && a.url); // Filter out any invalid entries
   } catch (error) {
     console.error('Error fetching DEV.to articles:', error);
     return [];
@@ -50,7 +52,7 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
     // Calculate 1 year ago for fresher results
     const oneYearAgo = Math.floor((Date.now() - 365 * 24 * 60 * 60 * 1000) / 1000);
     
-    // HN Algolia API supports hitsPerPage up to 1000
+    // HN Algolia API - search for query with date range filter
     const response = await fetch(
       `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(sanitized)}&hitsPerPage=100&page=${page}&numericFilters=created_at_i>${oneYearAgo}`,
       { 
@@ -62,18 +64,25 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
 
     const data = await response.json();
 
+    // Map HN results to Article format
     return (data.hits || []).map((item: any) => {
       let publishedAt = '';
       if (item.created_at) {
         try {
+          // created_at is Unix timestamp in seconds
           const timestamp = typeof item.created_at === 'string' ? parseInt(item.created_at, 10) : item.created_at;
-          if (!isNaN(timestamp)) {
+          if (!isNaN(timestamp) && timestamp > 0) {
             publishedAt = new Date(timestamp * 1000).toISOString();
           }
         } catch (e) {
-          // If date parsing fails, use empty string
+          // If date parsing fails, skip this article
+          return null;
         }
       }
+      
+      // Only return if we have a valid date
+      if (!publishedAt) return null;
+      
       return {
         id: `hn-${item.objectID}`,
         title: item.title || item.story_title || 'Untitled',
@@ -84,7 +93,7 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
         publishedAt,
         score: item.points || 0,
       };
-    });
+    }).filter((a: Article | null): a is Article => a !== null); // Filter out null entries
   } catch (error) {
     console.error('Error fetching HN articles:', error);
     return [];
@@ -116,13 +125,15 @@ export async function fetchAllArticles(query: string): Promise<Article[]> {
       return true;
     });
 
-    // Sort: DEV.to by score, HN at the end
+    // Separate by source
     const devtoArticles = unique.filter(a => a.source === 'devto');
     const hnArticles = unique.filter(a => a.source === 'hn');
     
+    // Sort each source by score (highest first)
     const sortedDevto = devtoArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedHn = hnArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
     
+    // Return DEV.to first, then HN
     return [...sortedDevto, ...sortedHn];
   } catch (error) {
     console.error('Error fetching articles:', error);
@@ -157,7 +168,7 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
       return true;
     });
 
-    // Sort by score, DEV.to first
+    // Sort by source and score
     const sortedDevto = unique.filter(a => a.source === 'devto').sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedHn = unique.filter(a => a.source === 'hn').sort((a, b) => (b.score || 0) - (a.score || 0));
     
