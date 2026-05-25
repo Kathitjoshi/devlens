@@ -52,17 +52,17 @@ function SearchPageContent() {
       return false;
     }
 
-    // Date filter
+    // Date filter - strict filtering
     if (dateFilter !== 'all') {
       if (!article.publishedAt) return false; // Exclude articles without dates
       const articleDate = new Date(article.publishedAt);
       const now = new Date();
       const daysDiff = (now.getTime() - articleDate.getTime()) / (1000 * 60 * 60 * 24);
 
-      // Use >= instead of > to include articles from today
-      if (dateFilter === 'today' && daysDiff >= 1) return false;
-      if (dateFilter === 'week' && daysDiff >= 7) return false;
-      if (dateFilter === 'month' && daysDiff >= 30) return false;
+      // Strict date filtering
+      if (dateFilter === 'today' && daysDiff > 1) return false;
+      if (dateFilter === 'week' && daysDiff > 7) return false;
+      if (dateFilter === 'month' && daysDiff > 30) return false;
     }
 
     // Popularity filter based on likes/upvotes

@@ -22,21 +22,17 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
 
     const data = await response.json();
 
-    return (data || []).map((article: any) => {
-      // Ensure we have a valid published_at date
-      let publishedAt = article.published_at || new Date().toISOString();
-      return {
-        id: `devto-${article.id}`,
-        title: article.title,
-        url: article.url,
-        source: 'devto' as const,
-        author: article.user?.name,
-        description: article.description || article.body_markdown?.substring(0, 200),
-        image: article.cover_image,
-        publishedAt,
-        score: article.positive_reactions_count || 0,
-      };
-    });
+    return (data || []).map((article: any) => ({
+      id: `devto-${article.id}`,
+      title: article.title,
+      url: article.url,
+      source: 'devto' as const,
+      author: article.user?.name,
+      description: article.description || article.body_markdown?.substring(0, 200),
+      image: article.cover_image,
+      publishedAt: article.published_at,
+      score: article.positive_reactions_count || 0,
+    }));
   } catch (error) {
     console.error('Error fetching DEV.to articles:', error);
     return [];
@@ -51,9 +47,12 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
   if (!sanitized) return [];
 
   try {
+    // Calculate 1 year ago for fresher results
+    const oneYearAgo = Math.floor((Date.now() - 365 * 24 * 60 * 60 * 1000) / 1000);
+    
     // HN Algolia API supports hitsPerPage up to 1000
     const response = await fetch(
-      `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(sanitized)}&hitsPerPage=100&page=${page}&numericFilters=created_at_i>0`,
+      `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(sanitized)}&hitsPerPage=100&page=${page}&numericFilters=created_at_i>${oneYearAgo}`,
       { 
         next: { revalidate: 86400 }, // 24 hours
       }
@@ -163,92 +162,15 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
  */
 export async function fetchArticlesByTopic(topic: string): Promise<Article[]> {
   try {
-    // Calculate date range: last 2 years (for HN)
-    const twoYearsAgo = Math.floor((Date.now() - 2 * 365 * 24 * 60 * 60 * 1000) / 1000);
+    // Use the same search as fetchAllArticles but for topic pages
+    // This ensures consistency and proper filtering
+    const articles = await fetchAllArticles(topic);
     
-    // Fetch from both DEV.to and HN in parallel
-    const [devtoResponse, hnResponse] = await Promise.all([
-      fetch(
-        `https://dev.to/api/articles/search?query=${encodeURIComponent(topic)}&per_page=100`,
-        { 
-          next: { revalidate: 86400 }, // 24 hours
-          headers: { 'Accept': 'application/vnd.forem.api-v1+json' }
-        }
-      ),
-      fetch(
-        `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(topic)}&hitsPerPage=100&numericFilters=created_at_i>${twoYearsAgo}`,
-        { 
-          next: { revalidate: 86400 }, // 24 hours
-        }
-      ),
-    ]);
-
-    let devtoArticles: Article[] = [];
-    let hnArticles: Article[] = [];
-
-    // Process DEV.to results
-    if (devtoResponse.ok) {
-      const data = await devtoResponse.json();
-      devtoArticles = (data || []).map((article: any) => ({
-        id: `devto-${article.id}`,
-        title: article.title,
-        url: article.url,
-        source: 'devto' as const,
-        author: article.user?.name,
-        description: article.description || article.body_markdown?.substring(0, 200),
-        image: article.cover_image,
-        publishedAt: article.published_at,
-        score: article.positive_reactions_count || 0,
-      }));
-    }
-
-    // Process HN results
-    if (hnResponse.ok) {
-      const data = await hnResponse.json();
-      hnArticles = (data.hits || []).map((item: any) => {
-        let publishedAt = '';
-        if (item.created_at) {
-          try {
-            const timestamp = typeof item.created_at === 'string' ? parseInt(item.created_at, 10) : item.created_at;
-            if (!isNaN(timestamp)) {
-              publishedAt = new Date(timestamp * 1000).toISOString();
-            }
-          } catch (e) {
-            // If date parsing fails, use empty string
-          }
-        }
-        return {
-          id: `hn-${item.objectID}`,
-          title: item.title || item.story_title || 'Untitled',
-          url: item.url || `https://news.ycombinator.com/item?id=${item.objectID}`,
-          source: 'hn' as const,
-          author: item.author,
-          description: item.story_text || item.comment_text || '',
-          publishedAt,
-          score: item.points || 0,
-        };
-      });
-    }
-
-    // Combine results
-    const combined = [...devtoArticles, ...hnArticles];
-    
-    // Remove duplicates by URL
-    const seen = new Set<string>();
-    const unique = combined.filter((article) => {
-      if (seen.has(article.url)) return false;
-      seen.add(article.url);
-      return true;
-    });
-
-    // Sort: new articles first, then by score
-    return unique.sort((a, b) => {
-      // First sort by date (newest first)
+    // Sort by date (newest first) for topic pages
+    return articles.sort((a, b) => {
       if (a.publishedAt && b.publishedAt) {
-        const dateCompare = new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-        if (dateCompare !== 0) return dateCompare;
+        return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
       }
-      // Then by score (highest first)
       return (b.score || 0) - (a.score || 0);
     });
   } catch (error) {
