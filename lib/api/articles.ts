@@ -2,7 +2,7 @@ import { Article } from '@/lib/types';
 import { sanitizeQuery } from '@/lib/utils/sanitize';
 
 /**
- * Fetch articles from DEV.to API with pagination
+ * Fetch articles from DEV.to API with pagination (original working API)
  */
 export async function fetchDevToArticles(query: string, page: number = 1): Promise<Article[]> {
   const sanitized = sanitizeQuery(query);
@@ -40,7 +40,7 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
 }
 
 /**
- * Fetch articles from Hacker News via Algolia API
+ * Fetch articles from Hacker News via Algolia API with 1-year date range
  */
 export async function fetchHNArticles(query: string, page: number = 0): Promise<Article[]> {
   const sanitized = sanitizeQuery(query);
@@ -93,6 +93,7 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
 
 /**
  * Fetch articles from both sources with pagination
+ * DEV.to articles first (higher priority), HN articles at the end
  */
 export async function fetchAllArticles(query: string): Promise<Article[]> {
   try {
@@ -104,7 +105,7 @@ export async function fetchAllArticles(query: string): Promise<Article[]> {
       fetchHNArticles(query, 1),
     ]);
 
-    // Combine all results (up to 400 articles)
+    // Combine all results: DEV.to first, then HN
     const combined = [...devtoPage1, ...devtoPage2, ...hnPage1, ...hnPage2];
     
     // Remove duplicates by URL
@@ -115,8 +116,14 @@ export async function fetchAllArticles(query: string): Promise<Article[]> {
       return true;
     });
 
-    // Sort by score
-    return unique.sort((a, b) => (b.score || 0) - (a.score || 0));
+    // Sort: DEV.to by score, HN at the end
+    const devtoArticles = unique.filter(a => a.source === 'devto');
+    const hnArticles = unique.filter(a => a.source === 'hn');
+    
+    const sortedDevto = devtoArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
+    const sortedHn = hnArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
+    
+    return [...sortedDevto, ...sortedHn];
   } catch (error) {
     console.error('Error fetching articles:', error);
     return [];
@@ -139,7 +146,7 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
       fetchHNArticles(queries[timeframe], 0),
     ]);
 
-    // Combine and sort by score
+    // Combine: DEV.to first, then HN
     const combined = [...devtoArticles, ...hnArticles];
     
     // Remove duplicates
@@ -150,7 +157,11 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
       return true;
     });
 
-    return unique.sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 100);
+    // Sort by score, DEV.to first
+    const sortedDevto = unique.filter(a => a.source === 'devto').sort((a, b) => (b.score || 0) - (a.score || 0));
+    const sortedHn = unique.filter(a => a.source === 'hn').sort((a, b) => (b.score || 0) - (a.score || 0));
+    
+    return [...sortedDevto, ...sortedHn].slice(0, 100);
   } catch (error) {
     console.error('Error fetching trending articles:', error);
     return [];
@@ -162,17 +173,8 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
  */
 export async function fetchArticlesByTopic(topic: string): Promise<Article[]> {
   try {
-    // Use the same search as fetchAllArticles but for topic pages
-    // This ensures consistency and proper filtering
-    const articles = await fetchAllArticles(topic);
-    
-    // Sort by date (newest first) for topic pages
-    return articles.sort((a, b) => {
-      if (a.publishedAt && b.publishedAt) {
-        return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-      }
-      return (b.score || 0) - (a.score || 0);
-    });
+    // Use the same search as fetchAllArticles for consistency
+    return await fetchAllArticles(topic);
   } catch (error) {
     console.error('Error fetching topic articles:', error);
     return [];
