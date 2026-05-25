@@ -59,9 +59,10 @@ function SearchPageContent() {
       const now = new Date();
       const daysDiff = (now.getTime() - articleDate.getTime()) / (1000 * 60 * 60 * 24);
 
-      if (dateFilter === 'today' && daysDiff > 1) return false;
-      if (dateFilter === 'week' && daysDiff > 7) return false;
-      if (dateFilter === 'month' && daysDiff > 30) return false;
+      // Use >= instead of > to include articles from today
+      if (dateFilter === 'today' && daysDiff >= 1) return false;
+      if (dateFilter === 'week' && daysDiff >= 7) return false;
+      if (dateFilter === 'month' && daysDiff >= 30) return false;
     }
 
     // Popularity filter based on likes/upvotes
@@ -84,6 +85,10 @@ function SearchPageContent() {
     // For "Popular" and "Trending", sort by score (highest first)
     if (popularityFilter === 'popular' || popularityFilter === 'trending') {
       return (b.score || 0) - (a.score || 0);
+    }
+    // When date filter is active, sort by date (newest first)
+    if (dateFilter !== 'all' && a.publishedAt && b.publishedAt) {
+      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
     }
     // Default: sort by score
     return (b.score || 0) - (a.score || 0);

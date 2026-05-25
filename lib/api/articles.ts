@@ -22,17 +22,21 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
 
     const data = await response.json();
 
-    return (data || []).map((article: any) => ({
-      id: `devto-${article.id}`,
-      title: article.title,
-      url: article.url,
-      source: 'devto' as const,
-      author: article.user?.name,
-      description: article.description || article.body_markdown?.substring(0, 200),
-      image: article.cover_image,
-      publishedAt: article.published_at,
-      score: article.positive_reactions_count || 0,
-    }));
+    return (data || []).map((article: any) => {
+      // Ensure we have a valid published_at date
+      let publishedAt = article.published_at || new Date().toISOString();
+      return {
+        id: `devto-${article.id}`,
+        title: article.title,
+        url: article.url,
+        source: 'devto' as const,
+        author: article.user?.name,
+        description: article.description || article.body_markdown?.substring(0, 200),
+        image: article.cover_image,
+        publishedAt,
+        score: article.positive_reactions_count || 0,
+      };
+    });
   } catch (error) {
     console.error('Error fetching DEV.to articles:', error);
     return [];
@@ -159,17 +163,20 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
  */
 export async function fetchArticlesByTopic(topic: string): Promise<Article[]> {
   try {
+    // Calculate date range: last 2 years (for HN)
+    const twoYearsAgo = Math.floor((Date.now() - 2 * 365 * 24 * 60 * 60 * 1000) / 1000);
+    
     // Fetch from both DEV.to and HN in parallel
     const [devtoResponse, hnResponse] = await Promise.all([
       fetch(
-        `https://dev.to/api/articles?tag=${encodeURIComponent(topic)}&per_page=100`,
+        `https://dev.to/api/articles/search?query=${encodeURIComponent(topic)}&per_page=100`,
         { 
           next: { revalidate: 86400 }, // 24 hours
           headers: { 'Accept': 'application/vnd.forem.api-v1+json' }
         }
       ),
       fetch(
-        `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(topic)}&hitsPerPage=100&numericFilters=created_at_i>0`,
+        `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(topic)}&hitsPerPage=100&numericFilters=created_at_i>${twoYearsAgo}`,
         { 
           next: { revalidate: 86400 }, // 24 hours
         }
@@ -234,8 +241,16 @@ export async function fetchArticlesByTopic(topic: string): Promise<Article[]> {
       return true;
     });
 
-    // Sort by score
-    return unique.sort((a, b) => (b.score || 0) - (a.score || 0));
+    // Sort: new articles first, then by score
+    return unique.sort((a, b) => {
+      // First sort by date (newest first)
+      if (a.publishedAt && b.publishedAt) {
+        const dateCompare = new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+        if (dateCompare !== 0) return dateCompare;
+      }
+      // Then by score (highest first)
+      return (b.score || 0) - (a.score || 0);
+    });
   } catch (error) {
     console.error('Error fetching topic articles:', error);
     return [];
