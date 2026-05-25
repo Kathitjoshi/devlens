@@ -59,16 +59,29 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
 
     const data = await response.json();
 
-    return (data.hits || []).map((item: any) => ({
-      id: `hn-${item.objectID}`,
-      title: item.title || item.story_title || 'Untitled',
-      url: item.url || `https://news.ycombinator.com/item?id=${item.objectID}`,
-      source: 'hn' as const,
-      author: item.author,
-      description: item.story_text || item.comment_text || '',
-      publishedAt: new Date(item.created_at).toISOString(),
-      score: item.points || 0,
-    }));
+    return (data.hits || []).map((item: any) => {
+      let publishedAt = '';
+      if (item.created_at) {
+        try {
+          const timestamp = typeof item.created_at === 'string' ? parseInt(item.created_at, 10) : item.created_at;
+          if (!isNaN(timestamp)) {
+            publishedAt = new Date(timestamp * 1000).toISOString();
+          }
+        } catch (e) {
+          // If date parsing fails, use empty string
+        }
+      }
+      return {
+        id: `hn-${item.objectID}`,
+        title: item.title || item.story_title || 'Untitled',
+        url: item.url || `https://news.ycombinator.com/item?id=${item.objectID}`,
+        source: 'hn' as const,
+        author: item.author,
+        description: item.story_text || item.comment_text || '',
+        publishedAt,
+        score: item.points || 0,
+      };
+    });
   } catch (error) {
     console.error('Error fetching HN articles:', error);
     return [];
@@ -142,34 +155,87 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
 }
 
 /**
- * Fetch articles by topic/tag
+ * Fetch articles by topic/tag from both sources
  */
 export async function fetchArticlesByTopic(topic: string): Promise<Article[]> {
   try {
-    // Fetch from DEV.to with tag parameter
-    const response = await fetch(
-      `https://dev.to/api/articles?tag=${encodeURIComponent(topic)}&per_page=100`,
-      { 
-        next: { revalidate: 86400 }, // 24 hours
-        headers: { 'Accept': 'application/vnd.forem.api-v1+json' }
-      }
-    );
+    // Fetch from both DEV.to and HN in parallel
+    const [devtoResponse, hnResponse] = await Promise.all([
+      fetch(
+        `https://dev.to/api/articles?tag=${encodeURIComponent(topic)}&per_page=100`,
+        { 
+          next: { revalidate: 86400 }, // 24 hours
+          headers: { 'Accept': 'application/vnd.forem.api-v1+json' }
+        }
+      ),
+      fetch(
+        `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(topic)}&hitsPerPage=100&numericFilters=created_at_i>0`,
+        { 
+          next: { revalidate: 86400 }, // 24 hours
+        }
+      ),
+    ]);
 
-    if (!response.ok) return [];
+    let devtoArticles: Article[] = [];
+    let hnArticles: Article[] = [];
 
-    const data = await response.json();
+    // Process DEV.to results
+    if (devtoResponse.ok) {
+      const data = await devtoResponse.json();
+      devtoArticles = (data || []).map((article: any) => ({
+        id: `devto-${article.id}`,
+        title: article.title,
+        url: article.url,
+        source: 'devto' as const,
+        author: article.user?.name,
+        description: article.description || article.body_markdown?.substring(0, 200),
+        image: article.cover_image,
+        publishedAt: article.published_at,
+        score: article.positive_reactions_count || 0,
+      }));
+    }
 
-    return (data || []).map((article: any) => ({
-      id: `devto-${article.id}`,
-      title: article.title,
-      url: article.url,
-      source: 'devto' as const,
-      author: article.user?.name,
-      description: article.description || article.body_markdown?.substring(0, 200),
-      image: article.cover_image,
-      publishedAt: article.published_at,
-      score: article.positive_reactions_count || 0,
-    }));
+    // Process HN results
+    if (hnResponse.ok) {
+      const data = await hnResponse.json();
+      hnArticles = (data.hits || []).map((item: any) => {
+        let publishedAt = '';
+        if (item.created_at) {
+          try {
+            const timestamp = typeof item.created_at === 'string' ? parseInt(item.created_at, 10) : item.created_at;
+            if (!isNaN(timestamp)) {
+              publishedAt = new Date(timestamp * 1000).toISOString();
+            }
+          } catch (e) {
+            // If date parsing fails, use empty string
+          }
+        }
+        return {
+          id: `hn-${item.objectID}`,
+          title: item.title || item.story_title || 'Untitled',
+          url: item.url || `https://news.ycombinator.com/item?id=${item.objectID}`,
+          source: 'hn' as const,
+          author: item.author,
+          description: item.story_text || item.comment_text || '',
+          publishedAt,
+          score: item.points || 0,
+        };
+      });
+    }
+
+    // Combine results
+    const combined = [...devtoArticles, ...hnArticles];
+    
+    // Remove duplicates by URL
+    const seen = new Set<string>();
+    const unique = combined.filter((article) => {
+      if (seen.has(article.url)) return false;
+      seen.add(article.url);
+      return true;
+    });
+
+    // Sort by score
+    return unique.sort((a, b) => (b.score || 0) - (a.score || 0));
   } catch (error) {
     console.error('Error fetching topic articles:', error);
     return [];

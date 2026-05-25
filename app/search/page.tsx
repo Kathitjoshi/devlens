@@ -53,7 +53,8 @@ function SearchPageContent() {
     }
 
     // Date filter
-    if (dateFilter !== 'all' && article.publishedAt) {
+    if (dateFilter !== 'all') {
+      if (!article.publishedAt) return false; // Exclude articles without dates
       const articleDate = new Date(article.publishedAt);
       const now = new Date();
       const daysDiff = (now.getTime() - articleDate.getTime()) / (1000 * 60 * 60 * 24);
