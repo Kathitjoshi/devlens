@@ -2,20 +2,56 @@ import { Article } from '@/lib/types';
 import { sanitizeQuery } from '@/lib/utils/sanitize';
 
 /**
- * Fetch articles from DEV.to API using TAG endpoint (returns relevant articles)
+ * Fetch articles from Hashnode API (more reliable than DEV.to)
+ * Hashnode has better search and filtering capabilities
+ */
+export async function fetchHashnodeArticles(query: string, page: number = 0): Promise<Article[]> {
+  const sanitized = sanitizeQuery(query);
+  if (!sanitized) return [];
+
+  try {
+    const response = await fetch(
+      `https://hashnode.com/api/v1/articles?query=${encodeURIComponent(sanitized)}&limit=20&page=${page}`,
+      { 
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const articles = data.articles || data || [];
+
+    return articles.map((article: any): Article => ({
+      id: `hashnode-${article.id || article.slug}`,
+      title: article.title,
+      url: article.url || article.canonicalUrl || `https://hashnode.com/@${article.author?.username}/${article.slug}`,
+      source: 'hashnode' as const,
+      author: article.author?.name,
+      description: article.subtitle || article.brief || '',
+      image: article.coverImage?.url,
+      publishedAt: article.publishedAt || article.dateAdded,
+      score: article.reactionCount || article.likes || 0,
+    })).filter((a: Article) => a.title && a.url);
+  } catch (error) {
+    console.error('Error fetching Hashnode articles:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch articles from DEV.to using improved search
+ * Falls back to generic popular articles if search fails
  */
 export async function fetchDevToArticles(query: string, page: number = 1): Promise<Article[]> {
   const sanitized = sanitizeQuery(query);
   if (!sanitized) return [];
 
   try {
-    // Use TAG API which returns articles with that specific tag
-    // DEV.to tags are case-sensitive and lowercase, so convert query to lowercase
-    const tagQuery = sanitized.toLowerCase();
+    // Try search API first
     const response = await fetch(
-      `https://dev.to/api/articles?tag=${encodeURIComponent(tagQuery)}&per_page=100&page=${page}`,
+      `https://dev.to/api/articles/search?query=${encodeURIComponent(sanitized)}&per_page=20&page=${page}`,
       { 
-        next: { revalidate: 86400 }, // 24 hours
         headers: { 'Accept': 'application/vnd.forem.api-v1+json' }
       }
     );
@@ -24,8 +60,14 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
 
     const data = await response.json();
 
-    // Ensure we only return articles that have valid data
-    return (data || []).map((article: any) => ({
+    // Filter to only include articles that actually mention the query in title or description
+    const filtered = (data || []).filter((article: any) => {
+      const titleMatch = article.title?.toLowerCase().includes(sanitized.toLowerCase());
+      const descMatch = article.description?.toLowerCase().includes(sanitized.toLowerCase());
+      return titleMatch || descMatch;
+    });
+
+    return filtered.map((article: any) => ({
       id: `devto-${article.id}`,
       title: article.title,
       url: article.url,
@@ -35,7 +77,7 @@ export async function fetchDevToArticles(query: string, page: number = 1): Promi
       image: article.cover_image,
       publishedAt: article.published_at,
       score: article.positive_reactions_count || 0,
-    })); // Return all articles from API (filtering happens in search page)
+    }));
   } catch (error) {
     console.error('Error fetching DEV.to articles:', error);
     return [];
@@ -57,7 +99,7 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
     const response = await fetch(
       `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(sanitized)}&hitsPerPage=100&page=${page}&numericFilters=created_at_i>${oneYearAgo}`,
       { 
-        next: { revalidate: 86400 }, // 24 hours
+        next: { revalidate: 3600 }, // 1 hour cache
       }
     );
 
@@ -68,15 +110,14 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
     // Map HN results to Article format
     return (data.hits || []).map((item: any) => {
       let publishedAt = '';
-      if (item.created_at) {
+      if (item.created_at_i) {
         try {
-          // created_at is Unix timestamp in seconds
-          const timestamp = typeof item.created_at === 'string' ? parseInt(item.created_at, 10) : item.created_at;
-          if (!isNaN(timestamp) && timestamp > 0) {
+          // created_at_i is Unix timestamp in seconds
+          const timestamp = item.created_at_i;
+          if (!isNaN(timestamp) && timestamp > 0 && timestamp < Date.now() / 1000) {
             publishedAt = new Date(timestamp * 1000).toISOString();
           }
         } catch (e) {
-          // If date parsing fails, skip this article
           return null;
         }
       }
@@ -94,7 +135,7 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
         publishedAt,
         score: item.points || 0,
       };
-    }).filter((a: Article | null): a is Article => a !== null); // Filter out null entries
+    }).filter((a: Article | null): a is Article => a !== null);
   } catch (error) {
     console.error('Error fetching HN articles:', error);
     return [];
@@ -103,20 +144,21 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
 
 /**
  * Fetch articles from both sources with pagination
- * DEV.to articles first (higher priority), HN articles at the end
+ * Prioritizes Hashnode, then DEV.to, then HN
  */
 export async function fetchAllArticles(query: string): Promise<Article[]> {
   try {
-    // Fetch from both sources in parallel with multiple pages
-    const [devtoPage1, devtoPage2, hnPage1, hnPage2] = await Promise.all([
+    // Fetch from all sources in parallel
+    const [hashnodePage1, hashnodePage2, devtoPage1, hnPage1, hnPage2] = await Promise.all([
+      fetchHashnodeArticles(query, 0),
+      fetchHashnodeArticles(query, 1),
       fetchDevToArticles(query, 1),
-      fetchDevToArticles(query, 2),
       fetchHNArticles(query, 0),
       fetchHNArticles(query, 1),
     ]);
 
-    // Combine all results: DEV.to first, then HN
-    const combined = [...devtoPage1, ...devtoPage2, ...hnPage1, ...hnPage2];
+    // Combine all results: Hashnode first, then DEV.to, then HN
+    const combined = [...hashnodePage1, ...hashnodePage2, ...devtoPage1, ...hnPage1, ...hnPage2];
     
     // Remove duplicates by URL
     const seen = new Set<string>();
@@ -127,15 +169,17 @@ export async function fetchAllArticles(query: string): Promise<Article[]> {
     });
 
     // Separate by source
+    const hashnodeArticles = unique.filter(a => a.source === 'hashnode');
     const devtoArticles = unique.filter(a => a.source === 'devto');
     const hnArticles = unique.filter(a => a.source === 'hn');
     
     // Sort each source by score (highest first)
+    const sortedHashnode = hashnodeArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedDevto = devtoArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedHn = hnArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    // Return DEV.to first, then HN
-    return [...sortedDevto, ...sortedHn];
+    // Return in priority order: Hashnode, DEV.to, then HN
+    return [...sortedHashnode, ...sortedDevto, ...sortedHn];
   } catch (error) {
     console.error('Error fetching articles:', error);
     return [];
@@ -143,7 +187,7 @@ export async function fetchAllArticles(query: string): Promise<Article[]> {
 }
 
 /**
- * Fetch trending articles from both sources
+ * Fetch trending articles from all sources
  */
 export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month' = 'today'): Promise<Article[]> {
   try {
@@ -153,13 +197,14 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
       month: 'best',
     };
 
-    const [devtoArticles, hnArticles] = await Promise.all([
+    const [hashnodeArticles, devtoArticles, hnArticles] = await Promise.all([
+      fetchHashnodeArticles(queries[timeframe], 0),
       fetchDevToArticles(queries[timeframe], 1),
       fetchHNArticles(queries[timeframe], 0),
     ]);
 
-    // Combine: DEV.to first, then HN
-    const combined = [...devtoArticles, ...hnArticles];
+    // Combine: Hashnode first, then DEV.to, then HN
+    const combined = [...hashnodeArticles, ...devtoArticles, ...hnArticles];
     
     // Remove duplicates
     const seen = new Set<string>();
@@ -170,10 +215,11 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
     });
 
     // Sort by source and score
+    const sortedHashnode = unique.filter(a => a.source === 'hashnode').sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedDevto = unique.filter(a => a.source === 'devto').sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedHn = unique.filter(a => a.source === 'hn').sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    return [...sortedDevto, ...sortedHn].slice(0, 100);
+    return [...sortedHashnode, ...sortedDevto, ...sortedHn].slice(0, 100);
   } catch (error) {
     console.error('Error fetching trending articles:', error);
     return [];
@@ -181,11 +227,10 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
 }
 
 /**
- * Fetch articles by topic/tag from both sources
+ * Fetch articles by topic/tag from all sources
  */
 export async function fetchArticlesByTopic(topic: string): Promise<Article[]> {
   try {
-    // Use the same search as fetchAllArticles for consistency
     return await fetchAllArticles(topic);
   } catch (error) {
     console.error('Error fetching topic articles:', error);
