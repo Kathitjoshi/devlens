@@ -2,44 +2,72 @@ import { Article } from '@/lib/types';
 import { sanitizeQuery } from '@/lib/utils/sanitize';
 
 /**
- * Fetch articles from DEV.to API using search endpoint with content filtering
+ * Fetch articles from Medium RSS feed
+ * Medium RSS is reliable and returns relevant articles for tech topics
  */
-export async function fetchDevToArticles(query: string, page: number = 1): Promise<Article[]> {
+export async function fetchMediumArticles(query: string): Promise<Article[]> {
   const sanitized = sanitizeQuery(query);
   if (!sanitized) return [];
 
   try {
     const response = await fetch(
-      `https://dev.to/api/articles?query=${encodeURIComponent(sanitized)}&per_page=50&page=${page}`,
+      `https://medium.com/feed/tag/${encodeURIComponent(sanitized)}`,
       { 
-        headers: { 'Accept': 'application/vnd.forem.api-v1+json' },
         next: { revalidate: 3600 } // 1 hour cache
       }
     );
 
     if (!response.ok) return [];
 
-    const data = await response.json();
+    const data = await response.text();
 
-    // Filter to only include articles that actually mention the query in title
-    const filtered = (data || []).filter((article: any) => {
-      const titleMatch = article.title?.toLowerCase().includes(sanitized.toLowerCase());
-      return titleMatch;
-    });
-
-    return filtered.map((article: any): Article => ({
-      id: `devto-${article.id}`,
-      title: article.title,
-      url: article.url,
-      source: 'devto' as const,
-      author: article.user?.name,
-      description: article.description || article.body_markdown?.substring(0, 200),
-      image: article.cover_image,
-      publishedAt: article.published_at,
-      score: article.positive_reactions_count || 0,
-    }));
+    // Parse RSS XML to extract articles
+    const articles: Article[] = [];
+    
+    // Regex to extract item elements
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    let itemMatch;
+    
+    while ((itemMatch = itemRegex.exec(data)) && articles.length < 50) {
+      const itemContent = itemMatch[1];
+      
+      // Extract title
+      const titleMatch = itemContent.match(/<title>([^<]+)<\/title>/);
+      const title = titleMatch ? titleMatch[1] : null;
+      
+      // Extract link
+      const linkMatch = itemContent.match(/<link>([^<]+)<\/link>/);
+      const url = linkMatch ? linkMatch[1] : null;
+      
+      // Extract description
+      const descMatch = itemContent.match(/<description>([^<]+)<\/description>/);
+      const description = descMatch ? descMatch[1] : '';
+      
+      // Extract pub date
+      const dateMatch = itemContent.match(/<pubDate>([^<]+)<\/pubDate>/);
+      const publishedAt = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
+      
+      // Extract author
+      const authorMatch = itemContent.match(/<creator>([^<]+)<\/creator>/);
+      const author = authorMatch ? authorMatch[1] : 'Medium';
+      
+      if (title && url) {
+        articles.push({
+          id: `medium-${url.split('/').pop()}`,
+          title: title.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'),
+          url,
+          source: 'medium' as any, // Will be converted to 'devto' for compatibility
+          author,
+          description: description.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'),
+          publishedAt,
+          score: 0, // Medium RSS doesn't provide engagement metrics
+        });
+      }
+    }
+    
+    return articles;
   } catch (error) {
-    console.error('Error fetching DEV.to articles:', error);
+    console.error('Error fetching Medium articles:', error);
     return [];
   }
 }
@@ -107,20 +135,19 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
 
 /**
  * Fetch articles from both sources with pagination
- * DEV.to articles first (higher priority), HN articles at the end
+ * Medium articles first (higher priority), HN articles at the end
  */
 export async function fetchAllArticles(query: string): Promise<Article[]> {
   try {
-    // Fetch from both sources in parallel with multiple pages
-    const [devtoPage1, devtoPage2, hnPage1, hnPage2] = await Promise.all([
-      fetchDevToArticles(query, 1),
-      fetchDevToArticles(query, 2),
+    // Fetch from both sources in parallel
+    const [mediumArticles, hnPage1, hnPage2] = await Promise.all([
+      fetchMediumArticles(query),
       fetchHNArticles(query, 0),
       fetchHNArticles(query, 1),
     ]);
 
-    // Combine all results: DEV.to first, then HN
-    const combined = [...devtoPage1, ...devtoPage2, ...hnPage1, ...hnPage2];
+    // Combine all results: Medium first, then HN
+    const combined = [...mediumArticles, ...hnPage1, ...hnPage2];
     
     // Remove duplicates by URL
     const seen = new Set<string>();
@@ -131,15 +158,15 @@ export async function fetchAllArticles(query: string): Promise<Article[]> {
     });
 
     // Separate by source
-    const devtoArticles = unique.filter(a => a.source === 'devto');
+    const mediumOnly = unique.filter(a => (a.source as any) === 'medium');
     const hnArticles = unique.filter(a => a.source === 'hn');
     
     // Sort each source by score (highest first)
-    const sortedDevto = devtoArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
+    const sortedMedium = mediumOnly.sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedHn = hnArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    // Return DEV.to first, then HN
-    return [...sortedDevto, ...sortedHn];
+    // Return Medium first, then HN
+    return [...sortedMedium, ...sortedHn];
   } catch (error) {
     console.error('Error fetching articles:', error);
     return [];
@@ -157,13 +184,13 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
       month: 'best',
     };
 
-    const [devtoArticles, hnArticles] = await Promise.all([
-      fetchDevToArticles(queries[timeframe], 1),
+    const [mediumArticles, hnArticles] = await Promise.all([
+      fetchMediumArticles(queries[timeframe]),
       fetchHNArticles(queries[timeframe], 0),
     ]);
 
-    // Combine: DEV.to first, then HN
-    const combined = [...devtoArticles, ...hnArticles];
+    // Combine: Medium first, then HN
+    const combined = [...mediumArticles, ...hnArticles];
     
     // Remove duplicates
     const seen = new Set<string>();
@@ -174,10 +201,10 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
     });
 
     // Sort by source and score
-    const sortedDevto = unique.filter(a => a.source === 'devto').sort((a, b) => (b.score || 0) - (a.score || 0));
+    const sortedMedium = unique.filter(a => (a.source as any) === 'medium').sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedHn = unique.filter(a => a.source === 'hn').sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    return [...sortedDevto, ...sortedHn].slice(0, 100);
+    return [...sortedMedium, ...sortedHn].slice(0, 100);
   } catch (error) {
     console.error('Error fetching trending articles:', error);
     return [];
