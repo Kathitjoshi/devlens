@@ -2,7 +2,7 @@ export interface Article {
   id: string;
   title: string;
   url: string;
-  source: 'devto' | 'hn';
+  source: 'medium' | 'hn';
   author?: string;
   description?: string;
   image?: string;
@@ -15,7 +15,7 @@ export interface Bookmark {
   userId: string;
   title: string;
   url: string;
-  source: 'devto' | 'hn';
+  source: 'medium' | 'hn';
   tags: string[];
   status: 'read_later' | 'finished';
   savedAt: string;

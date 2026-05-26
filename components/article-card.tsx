@@ -126,7 +126,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
         {/* Source Badge */}
         <div className="mb-2">
           <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent">
-            {article.source === 'devto' ? 'DEV.to' : 'Hacker News'}
+            {article.source === 'medium' ? 'Medium' : 'Hacker News'}
           </span>
         </div>
 
@@ -156,8 +156,8 @@ export function ArticleCard({ article }: ArticleCardProps) {
           </div>
           {article.score && (
             <span>
-              {article.source === 'devto' ? '❤️ ' : '⬆️ '}
-              {article.score} {article.source === 'devto' ? 'likes' : 'upvotes'}
+              {article.source === 'medium' ? '❤️ ' : '⬆️ '}
+              {article.score} {article.source === 'medium' ? 'likes' : 'upvotes'}
             </span>
           )}
         </div>

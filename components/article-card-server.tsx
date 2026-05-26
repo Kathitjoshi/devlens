@@ -25,7 +25,7 @@ export function ArticleCardServer({ article }: ArticleCardServerProps) {
         {/* Source Badge */}
         <div className="mb-2">
           <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent">
-            {article.source === 'devto' ? 'DEV.to' : 'Hacker News'}
+            {article.source === 'medium' ? 'Medium' : 'Hacker News'}
           </span>
         </div>
 
