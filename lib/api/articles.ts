@@ -12,9 +12,7 @@ export async function fetchDevtoArticles(query: string): Promise<Article[]> {
   try {
     const response = await fetch(
       `https://dev.to/api/articles?tag=${encodeURIComponent(sanitized)}&per_page=50`,
-      { 
-        next: { revalidate: 3600 } // 1 hour cache
-      }
+      { cache: 'no-store' }
     );
 
     if (!response.ok) return [];
@@ -54,9 +52,7 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
     // HN Algolia API - search for query with date range filter
     const response = await fetch(
       `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(sanitized)}&hitsPerPage=100&page=${page}&numericFilters=created_at_i>${oneYearAgo}`,
-      { 
-        next: { revalidate: 3600 }, // 1 hour cache
-      }
+      { cache: 'no-store' }
     );
 
     if (!response.ok) return [];
