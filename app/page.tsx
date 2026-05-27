@@ -72,7 +72,7 @@ export default function Home() {
               </div>
               <h3 className="font-semibold">Search</h3>
               <p className="text-sm text-muted-foreground">
-                Find articles from Medium and Hacker News instantly
+                Find articles from Dev.to and Hacker News instantly
               </p>
             </div>
 

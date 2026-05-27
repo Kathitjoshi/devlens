@@ -2,16 +2,16 @@ import { Article } from '@/lib/types';
 import { sanitizeQuery } from '@/lib/utils/sanitize';
 
 /**
- * Fetch articles from Medium RSS feed
- * Medium RSS uses CDATA sections, so we need special parsing
+ * Fetch articles from Dev.to API using tag parameter
+ * Dev.to API returns relevant articles when using tag parameter
  */
-export async function fetchMediumArticles(query: string): Promise<Article[]> {
+export async function fetchDevtoArticles(query: string): Promise<Article[]> {
   const sanitized = sanitizeQuery(query);
   if (!sanitized) return [];
 
   try {
     const response = await fetch(
-      `https://medium.com/feed/tag/${encodeURIComponent(sanitized)}`,
+      `https://dev.to/api/articles?tag=${encodeURIComponent(sanitized)}&per_page=50`,
       { 
         next: { revalidate: 3600 } // 1 hour cache
       }
@@ -19,70 +19,23 @@ export async function fetchMediumArticles(query: string): Promise<Article[]> {
 
     if (!response.ok) return [];
 
-    const data = await response.text();
+    const data = await response.json();
 
-    // Parse RSS XML to extract articles
-    const articles: Article[] = [];
-    
-    // Regex to extract item elements
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    let itemMatch;
-    
-    while ((itemMatch = itemRegex.exec(data)) && articles.length < 50) {
-      const itemContent = itemMatch[1];
-      
-      // Extract title (inside CDATA)
-      const titleMatch = itemContent.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/);
-      const title = titleMatch ? titleMatch[1].trim() : null;
-      
-      // Extract link from description (Medium puts link in description HTML)
-      let url = null;
-      const linkMatch = itemContent.match(/<link>([\s\S]*?)<\/link>/);
-      if (linkMatch) {
-        url = linkMatch[1].trim();
-      } else {
-        // Try to extract from description
-        const descLinkMatch = itemContent.match(/href="(https:\/\/[^"]+medium\.com[^"]+)"/);
-        if (descLinkMatch) {
-          url = descLinkMatch[1].split('?source=')[0]; // Remove source parameter
-        }
-      }
-      
-      // Extract description (inside CDATA)
-      const descMatch = itemContent.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/);
-      let description = '';
-      if (descMatch) {
-        // Extract text from HTML
-        const htmlContent = descMatch[1];
-        const textMatch = htmlContent.match(/<p class="medium-feed-snippet">([^<]+)<\/p>/);
-        description = textMatch ? textMatch[1].trim() : '';
-      }
-      
-      // Extract pub date
-      const dateMatch = itemContent.match(/<pubDate>([^<]+)<\/pubDate>/);
-      const publishedAt = dateMatch ? new Date(dateMatch[1]).toISOString() : new Date().toISOString();
-      
-      // Extract author (creator tag)
-      const authorMatch = itemContent.match(/<creator><!\[CDATA\[([\s\S]*?)\]\]><\/creator>/);
-      const author = authorMatch ? authorMatch[1].trim() : 'Medium';
-      
-      if (title && url) {
-        articles.push({
-          id: `medium-${url.split('/').pop()?.split('?')[0] || Math.random()}`,
-          title: title.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'),
-          url,
-          source: 'medium' as const,
-          author,
-          description: description.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'),
-          publishedAt,
-          score: 0, // Medium RSS doesn't provide engagement metrics
-        });
-      }
-    }
-    
-    return articles;
+    // Map Dev.to API response to Article format
+    return (data || []).map((item: any): Article => {
+      return {
+        id: `devto-${item.id}`,
+        title: item.title || 'Untitled',
+        url: item.url,
+        source: 'devto' as const,
+        author: item.user?.name || 'Dev.to User',
+        description: item.description || item.body_markdown?.substring(0, 200) || '',
+        publishedAt: item.published_at || item.created_at,
+        score: item.positive_reactions_count || 0,
+      };
+    }).filter((a: Article) => a.title && a.url);
   } catch (error) {
-    console.error('Error fetching Medium articles:', error);
+    console.error('Error fetching Dev.to articles:', error);
     return [];
   }
 }
@@ -150,19 +103,19 @@ export async function fetchHNArticles(query: string, page: number = 0): Promise<
 
 /**
  * Fetch articles from both sources with pagination
- * Medium articles first (higher priority), HN articles at the end
+ * Dev.to articles first (higher priority), HN articles at the end
  */
 export async function fetchAllArticles(query: string): Promise<Article[]> {
   try {
     // Fetch from both sources in parallel with multiple pages
-    const [mediumArticles, hnPage1, hnPage2] = await Promise.all([
-      fetchMediumArticles(query),
+    const [devtoArticles, hnPage1, hnPage2] = await Promise.all([
+      fetchDevtoArticles(query),
       fetchHNArticles(query, 0),
       fetchHNArticles(query, 1),
     ]);
 
-    // Combine all results: Medium first, then HN
-    const combined = [...mediumArticles, ...hnPage1, ...hnPage2];
+    // Combine all results: Dev.to first, then HN
+    const combined = [...devtoArticles, ...hnPage1, ...hnPage2];
     
     // Remove duplicates by URL
     const seen = new Set<string>();
@@ -173,15 +126,15 @@ export async function fetchAllArticles(query: string): Promise<Article[]> {
     });
 
     // Separate by source
-    const mediumOnly = unique.filter(a => a.source === 'medium');
+    const devtoOnly = unique.filter(a => a.source === 'devto');
     const hnArticles = unique.filter(a => a.source === 'hn');
     
     // Sort each source by score (highest first)
-    const sortedMedium = mediumOnly.sort((a, b) => (b.score || 0) - (a.score || 0));
+    const sortedDevto = devtoOnly.sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedHn = hnArticles.sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    // Return Medium first, then HN
-    return [...sortedMedium, ...sortedHn];
+    // Return Dev.to first, then HN
+    return [...sortedDevto, ...sortedHn];
   } catch (error) {
     console.error('Error fetching articles:', error);
     return [];
@@ -199,13 +152,13 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
       month: 'best',
     };
 
-    const [mediumArticles, hnArticles] = await Promise.all([
-      fetchMediumArticles(queries[timeframe]),
+    const [devtoArticles, hnArticles] = await Promise.all([
+      fetchDevtoArticles(queries[timeframe]),
       fetchHNArticles(queries[timeframe], 0),
     ]);
 
-    // Combine: Medium first, then HN
-    const combined = [...mediumArticles, ...hnArticles];
+    // Combine: Dev.to first, then HN
+    const combined = [...devtoArticles, ...hnArticles];
     
     // Remove duplicates
     const seen = new Set<string>();
@@ -216,10 +169,10 @@ export async function fetchTrendingArticles(timeframe: 'today' | 'week' | 'month
     });
 
     // Sort by source and score
-    const sortedMedium = unique.filter(a => a.source === 'medium').sort((a, b) => (b.score || 0) - (a.score || 0));
+    const sortedDevto = unique.filter(a => a.source === 'devto').sort((a, b) => (b.score || 0) - (a.score || 0));
     const sortedHn = unique.filter(a => a.source === 'hn').sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    return [...sortedMedium, ...sortedHn].slice(0, 100);
+    return [...sortedDevto, ...sortedHn].slice(0, 100);
   } catch (error) {
     console.error('Error fetching trending articles:', error);
     return [];

@@ -27,6 +27,6 @@ export const BOOKMARK_STATES = {
 } as const;
 
 export const ARTICLE_SOURCES = {
-  MEDIUM: 'medium',
+  DEVTO: 'devto',
   HN: 'hn',
 } as const;

@@ -16,7 +16,7 @@ function SearchPageContent() {
   const [error, setError] = useState('');
 
   // Filter states
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'medium' | 'hn'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'devto' | 'hn'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [popularityFilter, setPopularityFilter] = useState<'all' | 'popular' | 'trending' | 'recent'>('all');
 
@@ -124,7 +124,7 @@ function SearchPageContent() {
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="all">All Sources</option>
-              <option value="medium">Medium</option>
+              <option value="devto">Dev.to</option>
               <option value="hn">Hacker News</option>
             </select>
           </div>

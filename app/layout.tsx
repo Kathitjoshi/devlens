@@ -6,11 +6,11 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'DevLens — Technical Article Search for Developers',
   description:
-    'Search 100,000+ technical articles from Medium and Hacker News. Find the best dev content without the noise.',
+    'Search 100,000+ technical articles from Dev.to and Hacker News. Find the best dev content without the noise.',
   openGraph: {
     title: 'DevLens — Technical Article Search for Developers',
     description:
-      'Search 100,000+ technical articles from Medium and Hacker News. Find the best dev content without the noise.',
+      'Search 100,000+ technical articles from Dev.to and Hacker News. Find the best dev content without the noise.',
     url: process.env.NEXT_PUBLIC_SITE_URL || 'https://devlens.vercel.app',
     type: 'website',
   },
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'DevLens — Technical Article Search for Developers',
     description:
-      'Search 100,000+ technical articles from Medium and Hacker News. Find the best dev content without the noise.',
+      'Search 100,000+ technical articles from Dev.to and Hacker News. Find the best dev content without the noise.',
   },
 };
 
