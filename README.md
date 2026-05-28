@@ -4,9 +4,11 @@ A full-stack web application for searching and bookmarking technical articles fr
 
 **Live Demo:** [https://devlens-rosy.vercel.app/](https://devlens-rosy.vercel.app/)
 
-<img width="2730" height="1456" alt="image" src="https://github.com/user-attachments/assets/f76fba83-78fe-4bc7-a40e-bc0a67f16c82" />
+<img width="2703" height="1417" alt="image" src="https://github.com/user-attachments/assets/9f4e58a3-459d-4308-9304-2d9fc5a8a26d" />
 
-<img width="2710" height="1249" alt="image" src="https://github.com/user-attachments/assets/fcd9c1be-b373-4ab7-87e3-8ad7e4463d39" />
+<img width="2754" height="1114" alt="image" src="https://github.com/user-attachments/assets/11a93eb0-f3c1-4820-9693-dc450136a05b" />
+
+<img width="2714" height="1286" alt="image" src="https://github.com/user-attachments/assets/b06d004b-2ce3-4464-bf4c-9d28c2cfc20f" />
 
 
 ## Features
