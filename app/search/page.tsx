@@ -125,7 +125,7 @@ function SearchPageContent() {
             >
               <option value="all">All Sources</option>
               <option value="devto">Dev.to</option>
-              <option value="hn">Hacker News</option>
+              <option value="hn">GitHub/Medium RSS</option>
             </select>
           </div>
 
