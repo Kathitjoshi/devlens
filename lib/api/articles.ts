@@ -26,7 +26,7 @@ export async function fetchDevtoArticles(query: string): Promise<Article[]> {
       description: article.description || article.body_markdown?.substring(0, 200) || '',
       publishedAt: article.published_at || new Date().toISOString(),
       score: article.positive_reactions_count || 0,
-    })).filter(a => a.title && a.url);
+    })).filter((a: Article) => a.title && a.url);
   } catch (error) {
     console.error('Error fetching Dev.to articles:', error);
     return [];
@@ -61,7 +61,7 @@ export async function fetchGitHubArticles(query: string): Promise<Article[]> {
       description: repo.description || `⭐ ${repo.stargazers_count} stars`,
       publishedAt: repo.updated_at || new Date().toISOString(),
       score: repo.stargazers_count || 0,
-    })).filter(a => a.title && a.url);
+    })).filter((a: Article) => a.title && a.url);
   } catch (error) {
     console.error('Error fetching GitHub articles:', error);
     return [];
