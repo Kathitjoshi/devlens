@@ -1,6 +1,6 @@
 # DevLens — Technical Article Search for Developers
 
-A full-stack web application for searching and bookmarking technical articles from DEV.to and Hacker News. Built with Next.js 14, Supabase, and Tailwind CSS.
+A full-stack web application for searching and bookmarking technical articles from multiple sources including DEV Community, Medium, and GitHub repositories. Built with Next.js 14, Supabase, and Tailwind CSS. DevLens provides developers with a unified platform to discover, search, and organize high-quality technical content from across the web.
 
 **Live Demo:** [https://devlens-rosy.vercel.app/](https://devlens-rosy.vercel.app/)
 
@@ -11,17 +11,18 @@ A full-stack web application for searching and bookmarking technical articles fr
 
 ## Features
 
-- 🔍 **Smart Search** - Search 100,000+ technical articles from DEV.to and Hacker News
-- 🔐 **Authentication** - Email/password signup and signin with Supabase Auth
-- 📌 **Bookmarking** - Save articles as "Read Later" (blue) or "Finished" (green)
-- 📊 **Dashboard** - View and manage your bookmarked articles
-- 🔥 **Trending** - Discover what developers are reading right now
-- 🏷️ **Topics** - Browse articles by preset topics (React, TypeScript, Python, etc.)
-- 🌓 **Dark Mode** - Full dark/light theme support with smooth transitions
-- ⚡ **Performance** - Server-side rendering with ISR for optimal performance
-- 🔒 **Security** - Row-level security policies, input sanitization, and safe external links
-- 📱 **Responsive** - Mobile-first design with Tailwind CSS
-- 🎯 **SEO** - Dynamic metadata, robots.txt, sitemap.xml, and JSON-LD schema
+- Smart Search - Search technical articles from DEV Community, Medium, and GitHub repositories with real-time results
+- Multi-Source Article Retrieval - Automatic fallback system ensures consistent results even if one source is unavailable
+- Authentication - Email/password signup and signin with Supabase Auth
+- Bookmarking - Save articles as "Read Later" (blue) or "Finished" (green)
+- Dashboard - View and manage your bookmarked articles
+- Trending - Discover what developers are reading right now across all sources
+- Topics - Browse articles by preset topics (React, TypeScript, Python, etc.)
+- Dark Mode - Full dark/light theme support with smooth transitions
+- Performance - Server-side rendering with ISR for optimal performance
+- Security - Row-level security policies, input sanitization, and safe external links
+- Responsive - Mobile-first design with Tailwind CSS
+- SEO - Dynamic metadata, robots.txt, sitemap.xml, and JSON-LD schema
 
 ## Tech Stack
 
@@ -31,7 +32,7 @@ A full-stack web application for searching and bookmarking technical articles fr
 - **Authentication:** Supabase Auth (Email/Password)
 - **Styling:** Tailwind CSS 3
 - **Components:** Radix UI + custom components
-- **Data Fetching:** DEV.to API, Hacker News Algolia API
+- **Data Fetching:** DEV Community API, Medium RSS Feed, GitHub Repository Search API
 - **Deployment:** Vercel
 
 ## Getting Started
@@ -243,10 +244,12 @@ devlens/
 - Persistent storage in Supabase
 
 ### Article Search
-- Real-time search across DEV.to and Hacker News
+- Real-time search across multiple sources (DEV Community, Medium, GitHub)
+- Multi-source fallback system for reliable results
 - Debounced autocomplete with preset topics
 - Recent searches stored per user
 - Keyboard shortcut (Cmd+K / Ctrl+K) to focus search
+- Automatic source detection and content aggregation
 
 ### Trending & Topics
 - Server-side rendering with 1-hour ISR revalidation
@@ -259,6 +262,38 @@ devlens/
 - Input sanitization for search queries
 - Safe external link opening (noopener, noreferrer)
 - Security headers (X-Frame-Options, X-Content-Type-Options, etc.)
+
+## Article Sources and Retrieval
+
+DevLens implements a robust multi-source article retrieval system that ensures consistent search results even when individual sources experience downtime or rate limiting:
+
+### Primary Source: DEV Community API
+- Provides technical tutorials, discussions, and articles
+- Tag-based search for precise content discovery
+- Includes engagement metrics and author information
+- Fallback search functionality for broader queries
+
+### Secondary Source: Medium RSS Feed
+- Comprehensive tech content from Medium publications
+- In-depth articles and guides on various programming topics
+- RSS parsing for reliable content extraction
+- Supplements primary source when results are limited
+
+### Tertiary Source: GitHub Repository Search
+- Popular open-source projects and repositories
+- Sorted by star count and relevance
+- Provides practical code examples and implementations
+- Useful for discovering trending libraries and frameworks
+
+### Fallback Architecture
+The system implements a three-tier fallback mechanism:
+1. If DEV Community API is unavailable, it automatically attempts a broader search
+2. If results are insufficient, Medium RSS feed is queried
+3. GitHub repositories provide additional context and practical examples
+4. All sources are deduplicated by URL to prevent redundant results
+5. Results are sorted by engagement metrics (reactions, stars, etc.)
+
+This architecture ensures that users always get relevant results regardless of individual source availability, providing a seamless search experience.
 
 ## Deployment
 
