@@ -43,7 +43,7 @@ export default function TrendingPage() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Trending Articles</h1>
           <p className="text-muted-foreground">
-            What developers are reading right now
+            What developers are reading right now, The articles are not filtered by date; instead, they are ranked by popularity trends for today, this week, or this month.
           </p>
         </div>
 
