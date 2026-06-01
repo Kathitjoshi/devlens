@@ -118,7 +118,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border mt-20 py-8">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>DevLens © 2024. Built for developers, by developers.</p>
+          <p>DevLens 2026. Built for developers, by developers.</p>
         </div>
       </footer>
     </div>
