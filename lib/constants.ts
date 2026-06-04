@@ -28,5 +28,10 @@ export const BOOKMARK_STATES = {
 
 export const ARTICLE_SOURCES = {
   DEVTO: 'devto',
-  HN: 'hn',
+  HN: 'hn', // GitHub/Medium RSS
+} as const;
+
+export const ARTICLE_SOURCE_LABELS = {
+  devto: 'Dev.to',
+  hn: 'GitHub/Medium RSS',
 } as const;

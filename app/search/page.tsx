@@ -7,6 +7,7 @@ import { ArticleCard } from '@/components/article-card';
 import { fetchAllArticles } from '@/lib/api/articles';
 import { Article } from '@/lib/types';
 import { Loader, X } from 'lucide-react';
+import { ARTICLE_SOURCE_LABELS } from '@/lib/constants';
 
 function SearchPageContent() {
   const searchParams = useSearchParams();
@@ -95,7 +96,7 @@ function SearchPageContent() {
   });
 
   const activeFilters = [
-    sourceFilter !== 'all' && { key: 'source', label: `Source: ${sourceFilter.toUpperCase()}`, value: sourceFilter },
+    sourceFilter !== 'all' && { key: 'source', label: `Source: ${ARTICLE_SOURCE_LABELS[sourceFilter as keyof typeof ARTICLE_SOURCE_LABELS]}`, value: sourceFilter },
     dateFilter !== 'all' && { key: 'date', label: `Date: ${dateFilter}`, value: dateFilter },
     popularityFilter !== 'all' && { key: 'popularity', label: `Popularity: ${popularityFilter.charAt(0).toUpperCase() + popularityFilter.slice(1)}`, value: popularityFilter },
   ].filter(Boolean);

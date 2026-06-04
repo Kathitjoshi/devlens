@@ -1,6 +1,7 @@
 import { Article } from '@/lib/types';
 import { ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { ARTICLE_SOURCE_LABELS } from '@/lib/constants';
 
 interface ArticleCardServerProps {
   article: Article;
@@ -25,7 +26,7 @@ export function ArticleCardServer({ article }: ArticleCardServerProps) {
         {/* Source Badge */}
         <div className="mb-2">
           <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent">
-            {article.source === 'devto' ? 'Dev.to' : 'GitHub/Medium RSS'}
+            {ARTICLE_SOURCE_LABELS[article.source as keyof typeof ARTICLE_SOURCE_LABELS]}
           </span>
         </div>
 

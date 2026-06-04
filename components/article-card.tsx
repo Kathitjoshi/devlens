@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { openExternalLink } from '@/lib/utils/url';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import { ARTICLE_SOURCE_LABELS } from '@/lib/constants';
 
 interface ArticleCardProps {
   article: Article;
@@ -126,7 +127,7 @@ export function ArticleCard({ article }: ArticleCardProps) {
         {/* Source Badge */}
         <div className="mb-2">
           <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent">
-            {article.source === 'devto' ? 'Dev.to' : 'GitHub/Medium RSS'}
+            {ARTICLE_SOURCE_LABELS[article.source as keyof typeof ARTICLE_SOURCE_LABELS]}
           </span>
         </div>
 

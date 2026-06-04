@@ -31,10 +31,20 @@ export function SearchBar() {
             .select('query')
             .eq('user_id', user.id)
             .order('searched_at', { ascending: false })
-            .limit(5);
+            .limit(10);
 
           if (data) {
-            setRecentSearches(data.map((item: any) => item.query));
+            // Deduplicate recent searches - keep first occurrence
+            const seen = new Set<string>();
+            const deduplicated = data
+              .map((item: any) => item.query)
+              .filter((query: string) => {
+                if (seen.has(query)) return false;
+                seen.add(query);
+                return true;
+              })
+              .slice(0, 5);
+            setRecentSearches(deduplicated);
           }
         }
       } catch (error) {
@@ -71,6 +81,14 @@ export function SearchBar() {
         } = await supabase.auth.getUser();
 
         if (user) {
+          // Delete existing search history with same query to avoid duplicates
+          await supabase
+            .from('search_history')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('query', searchQuery);
+
+          // Insert new search history entry
           await supabase.from('search_history').insert({
             user_id: user.id,
             query: searchQuery,
@@ -141,9 +159,9 @@ export function SearchBar() {
               <div className="px-4 py-2 text-xs font-semibold text-muted-foreground border-b border-border">
                 Recent Searches
               </div>
-              {recentSearches.map((search) => (
+              {recentSearches.map((search, index) => (
                 <button
-                  key={search}
+                  key={`${search}-${index}`}
                   onClick={() => handleSearch(search)}
                   className="w-full text-left px-4 py-2 hover:bg-accent/10 text-foreground transition-colors"
                 >
